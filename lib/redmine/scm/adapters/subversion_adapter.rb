@@ -20,6 +20,9 @@ module Redmine
     module Adapters
       class SubversionAdapter < AbstractAdapter
 
+        # raised if scm command exited with error, e.g. unknown revision.
+        class ScmCommandAborted < CommandFailed; end
+
         # SVN executable name
         SVN_BIN = Redmine::Configuration['scm_subversion_command'] || "svn"
 
@@ -88,7 +91,7 @@ module Redmine
         # or nil if the given path doesn't exist in the repository
         def entries(path=nil, identifier=nil)
           path ||= ''
-          identifier = (identifier and identifier.to_i > 0) ? identifier.to_i : "HEAD"
+          identifier = initialize_identifier(identifier)
           entries = Entries.new
           cmd = "#{self.class.sq_bin} list --xml #{target(path)}@#{identifier}"
           cmd << credentials_string
@@ -131,7 +134,7 @@ module Redmine
           # proplist xml output supported in svn 1.5.0 and higher
           return nil unless self.class.client_version_above?([1, 5, 0])
 
-          identifier = (identifier and identifier.to_i > 0) ? identifier.to_i : "HEAD"
+          identifier = initialize_identifier(identifier)
           cmd = "#{self.class.sq_bin} proplist --verbose --xml #{target(path)}@#{identifier}"
           cmd << credentials_string
           properties = {}
@@ -154,8 +157,8 @@ module Redmine
 
         def revisions(path=nil, identifier_from=nil, identifier_to=nil, options={})
           path ||= ''
-          identifier_from = (identifier_from && identifier_from.to_i > 0) ? identifier_from.to_i : "HEAD"
-          identifier_to = (identifier_to && identifier_to.to_i > 0) ? identifier_to.to_i : 1
+          identifier_from = initialize_identifier(identifier_from)
+          identifier_to   = initialize_identifier(identifier_to, 1)
           revisions = Revisions.new
           cmd = "#{self.class.sq_bin} log --xml -r #{identifier_from}:#{identifier_to}"
           cmd << credentials_string
@@ -196,40 +199,53 @@ module Redmine
 
         def diff(path, identifier_from, identifier_to=nil, type="inline")
           path ||= ''
-          identifier_from = (identifier_from and identifier_from.to_i > 0) ? identifier_from.to_i : ''
 
-          identifier_to = (identifier_to and identifier_to.to_i > 0) ? identifier_to.to_i : (identifier_from.to_i - 1)
 
-          cmd = "#{self.class.sq_bin} diff -r "
-          cmd << "#{identifier_to}:"
-          cmd << "#{identifier_from}"
-          cmd << " #{target(path)}@#{identifier_from}"
-          cmd << credentials_string
+          identifier_from = initialize_identifier(identifier_from, '')
+          identifier_to = initialize_identifier(identifier_to, identifier_from.to_i - 1)
+
+          cmd_args = ["diff -r",
+                      "#{identifier_to}:#{identifier_from}",
+                      "#{target(path)}@#{identifier_from}",
+                      credentials_string]
           diff = []
-          shellout(cmd) do |io|
+          scm_cmd(cmd_args) do |io|
             io.each_line do |line|
               diff << line
             end
           end
-          return nil if $? && $?.exitstatus != 0
           diff
+        rescue ScmCommandAborted
+          nil
         end
 
         def cat(path, identifier=nil)
-          identifier = (identifier and identifier.to_i > 0) ? identifier.to_i : "HEAD"
-          cmd = "#{self.class.sq_bin} cat #{target(path)}@#{identifier}"
-          cmd << credentials_string
+          identifier = initialize_identifier(identifier)
+
+          cmd_args = ['cat', "#{target(path)}@#{identifier}", credentials_string]
           cat = nil
-          shellout(cmd) do |io|
+          scm_cmd(cmd_args) do |io|
             io.binmode
             cat = io.read
           end
-          return nil if $? && $?.exitstatus != 0
           cat
+        rescue ScmCommandAborted
+          nil
+        end
+
+        def save_entry_to_temp_file(path, identifier)
+          f = Tempfile.new(path.split("/").last, File.join(Rails.root, 'tmp'))
+
+          identifier = initialize_identifier(identifier)
+          cmd_args = ['cat', "#{target(path)}@#{identifier}", credentials_string]
+          scm_cmd(cmd_args, f.path)
+          f
+        rescue ScmCommandAborted
+          nil
         end
 
         def annotate(path, identifier=nil)
-          identifier = (identifier and identifier.to_i > 0) ? identifier.to_i : "HEAD"
+          identifier = initialize_identifier(identifier)
           cmd = "#{self.class.sq_bin} blame #{target(path)}@#{identifier}"
           cmd << credentials_string
           blame = Annotate.new
@@ -244,6 +260,24 @@ module Redmine
         end
 
         private
+
+        def initialize_identifier(identifier, default="HEAD")
+          (identifier && identifier.to_i > 0) ? identifier.to_i : default
+        end
+
+        def scm_cmd(cmd_args, output_path=nil, &block)
+          cmd = build_scm_cmd(cmd_args)
+          ret = shellout(cmd, output_path, &block)
+          if $? && $?.exitstatus != 0
+            raise ScmCommandAborted, "subversion exited with non-zero status: #{cmd} #{$?.exitstatus}"
+          end
+          ret
+        end
+
+        # returns the string that will represent the command for shelling out
+        def build_scm_cmd(args)
+          ([ self.class.sq_bin ] + args).join(' ')
+        end
 
         def credentials_string
           str = ''
