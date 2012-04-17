@@ -191,26 +191,31 @@ module Redmine
           RAILS_DEFAULT_LOGGER
         end
 
+        def log_debug(msg)
+          logger.debug(msg) if logger && logger.respond_to?(:debug)
+        end
+
+        def transform_cmd_in_development(cmd)
+          Rails.env == 'development' ? "#{cmd} 2>>#{RAILS_ROOT}/log/scm.stderr.log" : cmd
+        end
+
+        def get_reading_mode_for_ruby_version
+          RUBY_VERSION < '1.9' ? 'r+' : 'r+:ASCII-8BIT'
+        end
+
         def self.shellout(cmd, &block)
-          logger.debug "Shelling out: #{strip_credential(cmd)}" if logger && logger.debug?
-          if Rails.env == 'development'
-            # Capture stderr when running in dev environment
-            cmd = "#{cmd} 2>>#{RAILS_ROOT}/log/scm.stderr.log"
-          end
+          log_debug "Shelling out: #{strip_credential(cmd)}"
+          cmd = transform_cmd_in_development(cmd)
+          mode = get_reading_mode_for_ruby_version
           begin
-            if RUBY_VERSION < '1.9'
-              mode = "r+"
-            else
-              mode = "r+:ASCII-8BIT"
-            end
             IO.popen(cmd, mode) do |io|
               io.close_write
               block.call(io) if block_given?
             end
           rescue Errno::ENOENT => e
             msg = strip_credential(e.message)
-            # The command failed, log it and re-raise
-            logger.error("SCM command failed, make sure that your SCM binary (eg. svn) is in PATH (#{ENV['PATH']}): #{strip_credential(cmd)}\n  with: #{msg}")
+            cmd = strip_credential(msg)
+            logger.error("SCM command failed, make sure that your SCM binary (eg. svn) is in PATH (#{ENV['PATH']}): #{cmd}\n  with: #{msg}")
             raise CommandFailed.new(msg)
           end
         end
