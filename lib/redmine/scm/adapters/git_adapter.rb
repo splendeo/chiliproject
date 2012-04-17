@@ -77,7 +77,7 @@ module Redmine
           return @branches if @branches
           @branches = []
           cmd_args = %w|branch --no-color|
-          scm_cmd(*cmd_args) do |io|
+          scm_cmd(cmd_args) do |io|
             io.each_line do |line|
               @branches << line.match('\s*\*?\s*(.*)$')[1]
             end
@@ -90,7 +90,7 @@ module Redmine
         def tags
           return @tags if @tags
           cmd_args = %w|tag|
-          scm_cmd(*cmd_args) do |io|
+          scm_cmd(cmd_args) do |io|
             @tags = io.readlines.sort!.map{|t| t.strip}
           end
         rescue ScmCommandAborted
@@ -110,7 +110,7 @@ module Redmine
           cmd_args = %w|ls-tree -l|
           cmd_args << "HEAD:#{p}"          if identifier.nil?
           cmd_args << "#{identifier}:#{p}" if identifier
-          scm_cmd(*cmd_args) do |io|
+          scm_cmd(cmd_args) do |io|
             io.each_line do |line|
               e = line.chomp.to_s
               if e =~ /^\d+\s+(\w+)\s+([0-9a-f]{40})\s+([0-9-]+)\t(.+)$/
@@ -144,7 +144,7 @@ module Redmine
           cmd_args << rev if rev
           cmd_args << "--" << path unless path.empty?
           lines = []
-          scm_cmd(*cmd_args) { |io| lines = io.readlines }
+          scm_cmd(cmd_args) { |io| lines = io.readlines }
           begin
               id = lines[0].split[1]
               author = lines[1].match('Author:\s+(.*)$')[1]
@@ -179,7 +179,7 @@ module Redmine
           cmd_args << "--since='#{options[:since].strftime("%Y-%m-%d %H:%M:%S")}'" if options[:since]
           cmd_args << "--" << scm_iconv(@path_encoding, 'UTF-8', path) if path && !path.empty?
 
-          scm_cmd *cmd_args do |io|
+          scm_cmd cmd_args do |io|
             files=[]
             changeset = {}
             parsing_descr = 0  #0: not parsing desc or files, 1: parsing desc, 2: parsing files
@@ -271,7 +271,7 @@ module Redmine
           end
           cmd_args << "--" <<  scm_iconv(@path_encoding, 'UTF-8', path) unless path.empty?
           diff = []
-          scm_cmd *cmd_args do |io|
+          scm_cmd cmd_args do |io|
             io.each_line do |line|
               diff << line
             end
@@ -287,7 +287,7 @@ module Redmine
           cmd_args << "-p" << identifier << "--" <<  scm_iconv(@path_encoding, 'UTF-8', path)
           blame = Annotate.new
           content = nil
-          scm_cmd(*cmd_args) { |io| io.binmode; content = io.read }
+          scm_cmd(cmd_args) { |io| io.binmode; content = io.read }
           # git annotates binary files
           if content.respond_to?("is_binary_data?") && content.is_binary_data? # Ruby 1.8.x and <1.9.2
             return nil
@@ -323,11 +323,21 @@ module Redmine
           cmd_args = %w|show --no-color|
           cmd_args << "#{identifier}:#{scm_iconv(@path_encoding, 'UTF-8', path)}"
           cat = nil
-          scm_cmd(*cmd_args) do |io|
+          scm_cmd(cmd_args) do |io|
             io.binmode
             cat = io.read
           end
           cat
+        rescue ScmCommandAborted
+          nil
+        end
+
+        def save_entry_to_temp_file(path, identifier)
+          f = Tempfile.new(path.split("/").last, File.join(Rails.root, 'tmp'))
+          cmd_args = %w|show --no-color|
+          cmd_args << "#{identifier}:#{scm_iconv(@path_encoding, 'UTF-8', path)}"
+          scm_cmd(cmd_args, f.path)
+          f
         rescue ScmCommandAborted
           nil
         end
@@ -339,20 +349,25 @@ module Redmine
           end
         end
 
-        def scm_cmd(*args, &block)
-          repo_path = root_url || url
-          full_args = [GIT_BIN, '--git-dir', repo_path]
-          if self.class.client_version_above?([1, 7, 2])
-            full_args << '-c' << 'core.quotepath=false'
-          end
-          full_args += args
-          ret = shellout(full_args.map { |e| shell_quote e.to_s }.join(' '), &block)
+        private
+        def scm_cmd(cmd_args, output_path=nil, &block)
+          cmd = build_scm_cmd(cmd_args)
+          ret = shellout(cmd, output_path, &block)
           if $? && $?.exitstatus != 0
             raise ScmCommandAborted, "git exited with non-zero status: #{$?.exitstatus}"
           end
           ret
         end
-        private :scm_cmd
+
+        # returns the string that will represent the command for shelling out
+        def build_scm_cmd(args)
+          repo_path = root_url || url
+          full_args = [GIT_BIN, '--git-dir', repo_path]
+          if self.class.client_version_above?([1, 7, 2])
+            full_args << '-c' << 'core.quotepath=false'
+          end
+          (full_args + args).map { |e| shell_quote e.to_s }.join(' ')
+        end
       end
     end
   end

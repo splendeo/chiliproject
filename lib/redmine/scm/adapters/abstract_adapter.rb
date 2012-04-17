@@ -143,6 +143,10 @@ module Redmine
           return nil
         end
 
+        def save_entry_to_temp_file(path, identifier)
+          return nil
+        end
+
         def with_leading_slash(path)
           path ||= ''
           (path[0,1]!="/") ? "/#{path}" : path
@@ -183,29 +187,27 @@ module Redmine
           self.class.logger
         end
 
-        def shellout(cmd, &block)
-          self.class.shellout(cmd, &block)
+        def shellout(cmd, output_path=nil, &block)
+          self.class.shellout(cmd, output_path, &block)
         end
 
         def self.logger
           RAILS_DEFAULT_LOGGER
         end
 
-        def log_debug(msg)
-          logger.debug(msg) if logger && logger.respond_to?(:debug)
+        def self.process_cmd(cmd, output_path)
+          cmd = Rails.env == 'development' ? "#{cmd} 2>>#{RAILS_ROOT}/log/scm.stderr.log" : cmd
+          cmd = "#{cmd} >> #{output_path}" if output_path.present?
+          cmd
         end
 
-        def transform_cmd_in_development(cmd)
-          Rails.env == 'development' ? "#{cmd} 2>>#{RAILS_ROOT}/log/scm.stderr.log" : cmd
-        end
-
-        def get_reading_mode_for_ruby_version
+        def self.get_reading_mode_for_ruby_version
           RUBY_VERSION < '1.9' ? 'r+' : 'r+:ASCII-8BIT'
         end
 
-        def self.shellout(cmd, &block)
-          log_debug "Shelling out: #{strip_credential(cmd)}"
-          cmd = transform_cmd_in_development(cmd)
+        def self.shellout(cmd, output_path=nil, &block)
+          logger.debug("Shelling out: #{strip_credential(cmd)}") if logger && logger.respond_to?(:debug)
+          cmd = process_cmd(cmd, output_path)
           mode = get_reading_mode_for_ruby_version
           begin
             IO.popen(cmd, mode) do |io|
