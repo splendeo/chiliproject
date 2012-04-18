@@ -210,10 +210,12 @@ module Redmine
           cmd = process_cmd(cmd, output_path)
           mode = get_reading_mode_for_ruby_version
           begin
+            result = nil
             IO.popen(cmd, mode) do |io|
               io.close_write
-              block.call(io) if block_given?
+              result = block.call(io) if block_given?
             end
+            result
           rescue Errno::ENOENT => e
             msg = strip_credential(e.message)
             cmd = strip_credential(msg)
