@@ -104,8 +104,8 @@ class Repository < ActiveRecord::Base
     scm.cat(path, identifier)
   end
 
-  def save_entry_to_temp_file(path, rev)
-    scm.save_entry_to_temp_file(path, rev)
+  def save_entry_to_temp_file(path, identifier)
+    scm.save_entry_to_temp_file(path, identifier)
   end
 
   def diff(path, rev, rev_to)
