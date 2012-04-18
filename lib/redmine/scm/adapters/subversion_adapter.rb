@@ -238,7 +238,7 @@ module Redmine
           begin
             ret = shellout(cmd, output_path, &block)
           rescue Exception => e
-            logger.error("Error parsing svn output: #{e.message}")
+            logger.error("Error executing SVN: #{e.message}")
           end
           return nil if $? && $?.exitstatus != 0
           ret
