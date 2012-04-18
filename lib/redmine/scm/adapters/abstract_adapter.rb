@@ -218,7 +218,7 @@ module Redmine
             result
           rescue Errno::ENOENT => e
             msg = strip_credential(e.message)
-            cmd = strip_credential(msg)
+            cmd = strip_credential(cmd)
             logger.error("SCM command failed, make sure that your SCM binary (eg. svn) is in PATH (#{ENV['PATH']}): #{cmd}\n  with: #{msg}")
             raise CommandFailed.new(msg)
           end
