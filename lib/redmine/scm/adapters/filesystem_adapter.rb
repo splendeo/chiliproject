@@ -91,6 +91,14 @@ module Redmine
           raise CommandFailed.new(err.message)
         end
 
+        def save_entry_in_file(f, path, identifier)
+          p = scm_iconv(@path_encoding, 'UTF-8', target(path))
+          FileUtils.cp(p, f.path)
+        rescue  => err
+          logger.error "scm: filesystem: error: #{err.message}"
+          raise CommandFailed.new(err.message)
+        end
+
         private
 
         # AbstractAdapter::target is implicitly made to quote paths.
