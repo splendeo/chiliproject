@@ -178,7 +178,6 @@ module Redmine
         def diff(path, identifier_from, identifier_to=nil, type="inline")
           path ||= ''
 
-
           identifier_from = initialize_identifier(identifier_from, '')
           identifier_to = initialize_identifier(identifier_to, identifier_from.to_i - 1)
 
@@ -231,22 +230,6 @@ module Redmine
 
         def initialize_identifier(identifier, default="HEAD")
           (identifier && identifier.to_i > 0) ? identifier.to_i : default
-        end
-
-        def scm_cmd(cmd_args, output_path=nil, &block)
-          cmd = build_scm_cmd(cmd_args)
-          begin
-            ret = shellout(cmd, output_path, &block)
-          rescue Exception => e
-            logger.error("Error executing SVN: #{e.message}")
-          end
-          return nil if $? && $?.exitstatus != 0
-          ret
-        end
-
-        # returns the string that will represent the command for shelling out
-        def build_scm_cmd(args)
-          ([ self.class.sq_bin ] + args).join(' ')
         end
 
         def credentials_string

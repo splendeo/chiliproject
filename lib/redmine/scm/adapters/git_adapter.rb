@@ -341,21 +341,9 @@ module Redmine
         end
 
         private
-        def scm_cmd(cmd_args, output_path=nil, &block)
-          cmd = build_scm_cmd(cmd_args)
-          begin
-            ret = shellout(cmd, output_path, &block)
-          rescue Exception => e
-            logger.error("Error executing Git: #{e.message}")
-          end
-          return nil if $? && $?.exitstatus != 0
-          ret
-        end
-
         # returns the string that will represent the command for shelling out
         def build_scm_cmd(args)
-          repo_path = root_url || url
-          full_args = [GIT_BIN, '--git-dir', repo_path]
+          full_args = [GIT_BIN, '--git-dir', root_url || url ]
           if self.class.client_version_above?([1, 7, 2])
             full_args << '-c' << 'core.quotepath=false'
           end

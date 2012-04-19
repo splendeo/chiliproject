@@ -69,7 +69,7 @@ module Redmine
         end
 
         def adapter_name
-          'Abstract'
+          self.class.name.gsub("Adapter","")
         end
 
         def supports_cat?
@@ -189,6 +189,23 @@ module Redmine
 
         def shellout(cmd, output_path=nil, &block)
           self.class.shellout(cmd, output_path, &block)
+        end
+
+        def build_scm_cmd(cmd_args)
+          ([ self.class.sq_bin ] + cmd_args).join(' ')
+        end
+
+        def scm_cmd(cmd_args, output_path=nil, &block)
+          cmd = build_scm_cmd(cmd_args)
+          begin
+            ret = shellout(cmd, output_path, &block)
+          rescue Exception => e
+            msg = strip_credential(e.message)
+            cmd = strip_credential(cmd)
+            logger.error("Error executing #{adapter_name} command [#{cmd}]: #{msg}")
+          end
+          return nil if $? && $?.exitstatus != 0
+          ret
         end
 
         def self.logger
