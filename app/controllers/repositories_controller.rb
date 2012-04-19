@@ -122,12 +122,11 @@ class RepositoriesController < ApplicationController
       if params[:format] == 'raw' || is_too_large_to_show?(f) || is_binary?(f, @path)
         send_type = Redmine::MimeType.of(@path)
         options = {
-          :filename => filename_for_content_disposition(@path.split('/').last),
-          :disposition => 'attachment'
+          :filename    => filename_for_content_disposition(@path.split('/').last),
+          :disposition => 'attachment',
+          :x_sendfile  => false # x_sendfile does not work well with tempfiles
         }
         options[:type] = send_type.to_s if send_type
-        # warning - this will not work if x-sendfile is active;
-        # f is a temp file, so it can be removed before apache/nginx send it
         send_file(f.path, options)
       else
         @content = f.read
