@@ -143,7 +143,16 @@ module Redmine
           return nil
         end
 
-        def save_entry_to_temp_file(path, identifier)
+        def cat_to_tempfile(path, identifier, &block)
+          prefix = path.split("/").last
+          tmp_path = Rails.root.join('tmp')
+          Tempfile.open(prefix, tmp_path) do |f|
+            save_entry_in_file(f,path,identifier)
+            block.call(f)
+          end
+        end
+
+        def save_entry_in_file(file, path, identifier)
           return nil
         end
 

@@ -204,13 +204,10 @@ module Redmine
           end
         end
 
-        def save_entry_to_temp_file(path, identifier)
-          f = Tempfile.new(path.split("/").last, File.join(Rails.root, 'tmp'))
-
+        def save_entry_in_file(f, path, identifier)
           identifier = initialize_identifier(identifier)
           cmd_args = ['cat', "#{target(path)}@#{identifier}", credentials_string]
           scm_cmd(cmd_args, f.path)
-          f
         end
 
         def annotate(path, identifier=nil)

@@ -118,35 +118,32 @@ class RepositoriesController < ApplicationController
     # If the entry is a dir, show the browser
     (show; return) if @entry.is_dir?
 
-    f = nil
-    begin
-      f = @repository.save_entry_to_temp_file(@path, @rev)
-
-      if params[:format] == 'raw' ||
-         f.size > Setting.file_max_size_displayed.to_i.kilobyte ||
-         is_binary_data?(f, @path)
-        # Force the download
+    @repository.cat_to_tempfile(@path, @rev) do |f|
+      if params[:format] == 'raw' || is_too_large_to_show?(f) || is_binary?(f, @path)
         send_type = Redmine::MimeType.of(@path)
         options = {
           :filename => filename_for_content_disposition(@path.split('/').last),
           :disposition => 'attachment'
         }
         options[:type] = send_type.to_s if send_type
+        # warning - this will not work if x-sendfile is active;
+        # f is a temp file, so it can be removed before apache/nginx send it
         send_file(f.path, options)
       else
         @content = f.read
         @changeset = @repository.find_changeset_by_name(@rev)
       end
-
-    rescue Errno::ENOENT
-      show_error_not_found
-      return
-    ensure
-      f.close if f
     end
+  rescue Errno::ENOENT
+    show_error_not_found
   end
 
-  def is_binary_data?(file, path)
+  def is_too_large_to_show?(f)
+    f.size > Setting.file_max_size_displayed.to_i.kilobyte
+  end
+  private :is_too_large_to_show?
+
+  def is_binary?(file, path)
 
     return false if Redmine::MimeType.is_type?('text', path)
 
@@ -163,7 +160,7 @@ class RepositoriesController < ApplicationController
            blk.count("^ -~", "^\r\n") / blk.size > 0.3 ||
            blk.count("\x00") > 0
   end
-  private :is_binary_data?
+  private :is_binary?
 
   def annotate
     @entry = @repository.entry(@path, @rev)
