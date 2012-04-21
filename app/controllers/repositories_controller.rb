@@ -133,8 +133,8 @@ class RepositoriesController < ApplicationController
         @changeset = @repository.find_changeset_by_name(@rev)
       end
     end
-  rescue Errno::ENOENT
-    show_error_not_found
+  #rescue Errno::ENOENT
+  #  show_error_not_found
   end
 
   def is_too_large_to_show?(f)
