@@ -234,6 +234,12 @@ module Redmine
           end
         end
 
+        def save_entry_in_file(f, path, identifier)
+          p = escape(path)
+          cmd_args = ['rhcat', '-r', CGI.escape(hgrev(identifier)), hgtarget(p)]
+          scm_cmd(cmd_args, f.path)
+        end
+
         def annotate(path, identifier=nil)
           p = escape(path)
           cmd_args = ['rhannotate', '-ncu', '-r', CGI.escape(hgrev(identifier)), hgtarget(p)]
