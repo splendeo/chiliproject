@@ -166,9 +166,8 @@ module Redmine
 
         def cat(path, identifier=nil)
           identifier = initialize_identifier(identifier)
-          cmd_args = ["cat"]
+          cmd_args = ["cat", target(path)]
           cmd_args << "-r#{identifier}" if identifier
-          cmd_args << " #{target(path)}"
           scm_cmd(cmd_args) do |io|
             io.binmode
             io.read
@@ -176,7 +175,9 @@ module Redmine
         end
 
         def save_entry_in_file(f, path, identifier)
-          cmd_args = %W|cat -r#{identifier.to_i} #{target(path)}|
+          identifier = initialize_identifier(identifier)
+          cmd_args = ["cat", target(path)]
+          cmd_args << "-r#{identifier}" if identifier
           scm_cmd(cmd_args, f.path)
         end
 
