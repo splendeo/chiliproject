@@ -51,7 +51,7 @@ module Redmine
           end
 
           def scm_version_from_command_line
-            shellout("#{sq_bin} --version") { |io| io.read }.to_s
+            scm_cmd(["--version"]){ |io| io.read }.to_s
           end
         end
 
