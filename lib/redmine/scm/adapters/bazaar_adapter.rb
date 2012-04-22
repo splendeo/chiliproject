@@ -50,7 +50,7 @@ module Redmine
           end
 
           def scm_version_from_command_line
-            scm_cmd(["--version"]){ |io| io.read }.to_s
+            shellout("--version"){ |io| io.read }.to_s
           end
         end
 

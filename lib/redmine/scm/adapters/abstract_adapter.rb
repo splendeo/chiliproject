@@ -200,12 +200,21 @@ module Redmine
           self.class.shellout(cmd, output_path, &block)
         end
 
-        def scm_cmd(cmd, output_path=nil, &block)
-          self.class.scm_cmd(cmd, output_path, &block)
+        def build_scm_cmd(cmd_args)
+          ([ self.class.sq_bin ] + cmd_args).join(' ')
         end
 
-        def build_scm_cmd(cmd_args)
-          self.class.build_scm_cmd(cmd_args)
+        def scm_cmd(cmd_args, output_path=nil, &block)
+          cmd = build_scm_cmd(cmd_args)
+          begin
+            ret = shellout(cmd, output_path, &block)
+          rescue Exception => e
+            msg = strip_credential(e.message)
+            cmd = strip_credential(cmd)
+            logger.error("Error executing #{adapter_name} command [#{cmd}]: #{msg}")
+          end
+          return nil if $? && $?.exitstatus != 0
+          ret
         end
 
         def self.logger
@@ -241,22 +250,6 @@ module Redmine
           end
         end
 
-        def self.build_scm_cmd(cmd_args)
-          ([ self.sq_bin ] + cmd_args).join(' ')
-        end
-
-        def self.scm_cmd(cmd_args, output_path=nil, &block)
-          cmd = build_scm_cmd(cmd_args)
-          begin
-            ret = shellout(cmd, output_path, &block)
-          rescue Exception => e
-            msg = strip_credential(e.message)
-            cmd = strip_credential(cmd)
-            logger.error("Error executing #{adapter_name} command [#{cmd}]: #{msg}")
-          end
-          return nil if $? && $?.exitstatus != 0
-          ret
-        end
 
         # Hides username/password in a given command
         def self.strip_credential(cmd)

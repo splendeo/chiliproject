@@ -166,14 +166,15 @@ module Redmine
         def revisions(path, identifier_from, identifier_to, options={})
           revisions = Revisions.new
 
-          cmd_args = %w|log --no-color --encoding=UTF-8 --raw --date=iso --pretty=fuller|
-          cmd_args << "--reverse" if options[:reverse]
-          cmd_args << "--all" if options[:all]
-          cmd_args << "-n" << "#{options[:limit].to_i}" if options[:limit]
           from_to = ""
           from_to << "#{identifier_from}.." if identifier_from
           from_to << "#{identifier_to}" if identifier_to
-          cmd_args << from_to if !from_to.empty?
+
+          cmd_args = %w|log --no-color --encoding=UTF-8 --raw --date=iso --pretty=fuller|
+          cmd_args << "--reverse"                  if options[:reverse]
+          cmd_args << "--all"                      if options[:all]
+          cmd_args << "-n #{options[:limit].to_i}" if options[:limit]
+          cmd_args << from_to                      unless from_to.empty?
           cmd_args << "--since='#{options[:since].strftime("%Y-%m-%d %H:%M:%S")}'" if options[:since]
           cmd_args << "--" << scm_iconv(@path_encoding, 'UTF-8', path) if path && !path.empty?
 
@@ -345,7 +346,8 @@ module Redmine
           if self.class.client_version_above?([1, 7, 2])
             full_args << '-c' << 'core.quotepath=false'
           end
-          (full_args + args).map { |e| shell_quote e.to_s }.join(' ')
+          full_args += args
+          full_args.map { |e| shell_quote e.to_s }.join(' ')
         end
       end
     end
