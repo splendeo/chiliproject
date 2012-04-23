@@ -281,13 +281,22 @@ module Redmine
         def cat(path, identifier=nil)
           identifier = initialize_identifier(identifier, "HEAD")
           path_with_project= create_path_with_project path
-          cmd_args = %W|#{self.class.sq_bin} -d #{root_url} co|
-          cmd_args << "-D \"#{time_to_cvstime(identifier)}\"" if identifier
-          cmd_args << "-p #{path_with_project}"
+          cmd_args = ['co']
+          cmd_args << "-D" << time_to_cvstime(identifier) if identifier
+          cmd_args << "-p" << path_with_project
           scm_cmd(cmd_args) do |io|
             io.binmode
             io.read
           end
+        end
+
+        def save_entry_in_file(f, path, identifier)
+          identifier = initialize_identifier(identifier, "HEAD")
+          path_with_project= create_path_with_project path
+          cmd_args = ['co']
+          cmd_args << "-D" << time_to_cvstime(identifier) if identifier
+          cmd_args << "-p" << path_with_project
+          scm_cmd(cmd_args, f.path)
         end
 
         def annotate(path, identifier=nil)
@@ -324,12 +333,10 @@ module Redmine
 
         # convert a date/time into the CVS-format
         def time_to_cvstime(time)
-          return nil if time.nil?
           return Time.now if time == 'HEAD'
 
-          unless time.kind_of? Time
-            time = Time.parse(time)
-          end
+          time = Time.parse(time) unless time.kind_of? Time
+
           return time.strftime("%Y-%m-%d %H:%M:%S")
         end
 
