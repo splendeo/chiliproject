@@ -88,7 +88,7 @@ module Redmine
 
         def entries(path=nil, identifier=nil)
           logger.debug "<cvs> entries '#{path}' with identifier '#{identifier}'"
-          path_with_project="#{url}#{with_leading_slash(path)}"
+          path_with_project = create_path_with_project path
           cmd_args = %w|rls -e|
           cmd_args << "-D" << time_to_cvstime_rlog(identifier) if identifier
           cmd_args << path_with_project
@@ -145,7 +145,7 @@ module Redmine
         def revisions(path=nil, identifier_from=nil, identifier_to=nil, options={}, &block)
           logger.debug "<cvs> revisions path:'#{path}',identifier_from #{identifier_from}, identifier_to #{identifier_to}"
 
-          path_with_project="#{url}#{with_leading_slash(path)}"
+          path_with_project = create_path_with_project path
           cmd_args = %w|rlog|
           cmd_args << "-d" << ">#{time_to_cvstime_rlog(identifier_from)}" if identifier_from
           cmd_args << path_with_project
@@ -267,7 +267,7 @@ module Redmine
 
         def diff(path, identifier_from, identifier_to=nil)
           logger.debug "<cvs> diff path:'#{path}',identifier_from #{identifier_from}, identifier_to #{identifier_to}"
-          path_with_project="#{url}#{with_leading_slash(path)}"
+          path_with_project= create_path_with_project path
           cmd_args = %W|rdiff -u -r#{identifier_to} -r#{identifier_from} #{path_with_project}|
           scm_cmd(cmd_args) do |io|
             diff = []
@@ -279,9 +279,8 @@ module Redmine
         end
 
         def cat(path, identifier=nil)
-          identifier = (identifier) ? identifier : "HEAD"
-          logger.debug "<cvs> cat path:'#{path}',identifier #{identifier}"
-          path_with_project="#{url}#{with_leading_slash(path)}"
+          identifier = initialize_identifier(identifier, "HEAD")
+          path_with_project= create_path_with_project path
           cmd_args = %W|#{self.class.sq_bin} -d #{root_url} co|
           cmd_args << "-D \"#{time_to_cvstime(identifier)}\"" if identifier
           cmd_args << "-p #{path_with_project}"
@@ -292,9 +291,9 @@ module Redmine
         end
 
         def annotate(path, identifier=nil)
-          identifier = (identifier) ? identifier.to_i : "HEAD"
+          identifier = initialize_identifier(identifier, "HEAD")
           logger.debug "<cvs> annotate path:'#{path}',identifier #{identifier}"
-          path_with_project="#{url}#{with_leading_slash(path)}"
+          path_with_project= create_path_with_project path
           cmd_args = %W|rannotate -r#{identifier} #{path_with_project}|
           scm_cmd(cmd_args) do |io|
             blame = Annotate.new
@@ -307,6 +306,14 @@ module Redmine
         end
 
         private
+
+        def create_path_with_project(path)
+          "#{url}#{with_leading_slash(path)}"
+        end
+
+        def initialize_identifier(identifier, default)
+          identifier ? identifier : default
+        end
 
         # Returns the root url without the connexion string
         # :pserver:anonymous@foo.bar:/path => /path
