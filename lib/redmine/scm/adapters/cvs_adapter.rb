@@ -279,24 +279,14 @@ module Redmine
         end
 
         def cat(path, identifier=nil)
-          identifier = initialize_identifier(identifier, "HEAD")
-          path_with_project= create_path_with_project path
-          cmd_args = ['co']
-          cmd_args << "-D" << time_to_cvstime(identifier) if identifier
-          cmd_args << "-p" << path_with_project
-          scm_cmd(cmd_args) do |io|
+          scm_cmd(cmd_args_for_cat(path, identifier)) do |io|
             io.binmode
             io.read
           end
         end
 
         def save_entry_in_file(f, path, identifier)
-          identifier = initialize_identifier(identifier, "HEAD")
-          path_with_project= create_path_with_project path
-          cmd_args = ['co']
-          cmd_args << "-D" << time_to_cvstime(identifier) if identifier
-          cmd_args << "-p" << path_with_project
-          scm_cmd(cmd_args, f.path)
+          scm_cmd(cmd_args_for_cat(path, identifier), f.path)
         end
 
         def annotate(path, identifier=nil)
@@ -315,6 +305,14 @@ module Redmine
         end
 
         private
+
+        def cmd_args_for_cat(path, identifier)
+          identifier = initialize_identifier(identifier, "HEAD")
+          path_with_project= create_path_with_project path
+          cmd_args = ['co']
+          cmd_args << "-D" << time_to_cvstime(identifier) if identifier
+          cmd_args << "-p" << path_with_project
+        end
 
         def create_path_with_project(path)
           "#{url}#{with_leading_slash(path)}"
