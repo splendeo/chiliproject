@@ -129,12 +129,11 @@ class RepositoriesController < ApplicationController
         options[:type] = send_type.to_s if send_type
         send_file(f.path, options)
       else
+        f.rewind
         @content = f.read
         @changeset = @repository.find_changeset_by_name(@rev)
       end
     end
-  #rescue Errno::ENOENT
-  #  show_error_not_found
   end
 
   def is_too_large_to_show?(f)
