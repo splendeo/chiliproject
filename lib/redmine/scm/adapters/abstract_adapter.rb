@@ -144,9 +144,7 @@ module Redmine
         end
 
         def cat_to_tempfile(path, identifier, &block)
-          prefix = path.split("/").last
-          tmp_path = Rails.root.join('tmp')
-          Tempfile.open(prefix, tmp_path) do |f|
+          Tempfile.open('repository_download') do |f|
             save_entry_in_file(f,path,identifier)
             block.call(f)
           end
